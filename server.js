@@ -5,17 +5,13 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS 
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors({ origin: "*" }));
 
-// GET /api/classify?name={name}
 app.get("/api/classify", async (req, res) => {
   try {
     let { name } = req.query;
 
-    //  400 - Missing or empty name
+    // 400 - Missing
     if (!name || name.trim() === "") {
       return res.status(400).json({
         status: "error",
@@ -23,7 +19,7 @@ app.get("/api/classify", async (req, res) => {
       });
     }
 
-    //  422 - Not a string
+    // 422 - Not string
     if (typeof name !== "string") {
       return res.status(422).json({
         status: "error",
@@ -31,33 +27,29 @@ app.get("/api/classify", async (req, res) => {
       });
     }
 
-    //  Normalize input
     name = name.trim().toLowerCase();
 
-    // Call Genderize API
     const response = await axios.get(
-      `https://api.genderize.io?name=${encodeURIComponent(name)}`
+      `https://api.genderize.io?name=${encodeURIComponent(name)}`,
+      { timeout: 3000 }
     );
 
     const { gender, probability, count } = response.data;
 
-    // Edge case: ONLY fail if completely no data
-    if (!gender && (!count || count === 0)) {
+    if (gender === null || count === 0) {
       return res.status(422).json({
         status: "error",
         message: "No prediction available for the provided name"
       });
     }
 
-    // Ensure values exist
-    const sample_size = count || 0;
+    const sample_size = count;
 
     const is_confident =
       probability >= 0.7 && sample_size >= 100;
 
     const processed_at = new Date().toISOString();
 
-    // Success response (STRICT FORMAT)
     return res.status(200).json({
       status: "success",
       data: {
@@ -71,7 +63,6 @@ app.get("/api/classify", async (req, res) => {
     });
 
   } catch (error) {
-    // Upstream failure
     return res.status(502).json({
       status: "error",
       message: "Upstream API error"
@@ -79,7 +70,6 @@ app.get("/api/classify", async (req, res) => {
   }
 });
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
